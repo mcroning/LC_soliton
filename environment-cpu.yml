@@ -1,3 +1,4 @@
+# environment-cpu.yml
 name: lc_soliton_cpu
 channels:
   - conda-forge
