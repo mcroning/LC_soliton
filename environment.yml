@@ -1,31 +1,18 @@
+cat > environment.yml <<'YML'
 name: lc_soliton
 channels:
-  - nvidia
   - conda-forge
-  - defaults
-
+  - nvidia
 dependencies:
-  # --- Core Python ---
   - python=3.11
+  - numpy>=1.26,<2.0
+  - cupy-cuda12x>=13.0,<14.0a0
+  - scipy>=1.11,<2.0
+  - numba>=0.59,<0.60
+  - matplotlib>=3.8,<4.0
+  - pyyaml
   - pip
-
-  # --- GPU & numerical libraries ---
-  # Use cupy-cuda12x for systems with CUDA 12.x drivers (A100, RTX 40xx, etc.)
-  # On Mac or CPU-only machines, replace with "cupy" (pure CPU fallback).
-  - cupy-cuda12x>=13.0.0
-  - numpy>=1.26
-  - scipy>=1.13
-  - matplotlib>=3.8
-
-  # --- Dev/test tools ---
-  - pytest>=8.0
-  - ruff>=0.6.0
-
-  # --- Optional: progress and visualization helpers ---
-  - tqdm
-  - pyvista
-  - jupyterlab
-
-  # --- Optional pip extras (if not available on conda) ---
   - pip:
-      - rich
+      - ruff>=0.6,<0.7
+      - pytest>=7.4,<8.0
+YML
