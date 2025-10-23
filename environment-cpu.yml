@@ -1,0 +1,26 @@
+name: lc_soliton_cpu
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.11
+  - pip
+
+  # --- CPU-only numerical stack ---
+  - cupy  # CPU fallback (no CUDA)
+  - numpy>=1.26
+  - scipy>=1.13
+  - matplotlib>=3.8
+
+  # --- Development tools ---
+  - pytest>=8.0
+  - ruff>=0.6.0
+
+  # --- Visualization / notebook tools ---
+  - tqdm
+  - pyvista
+  - jupyterlab
+
+  - pip:
+      - rich

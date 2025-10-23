@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lc_soliton"
+version = "0.1.0"
+description = "GPU-accelerated liquid-crystal soliton simulation code"
+authors = [
+  { name = "Mark Cronin-Golomb", email = "mark.cronin-golomb@tufts.edu" },
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+  "cupy-cuda12x>=13.0.0",
+  "numpy>=1.26",
+  "scipy>=1.13",
+  "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/mcroning/lc_soliton"
+Repository = "https://github.com/mcroning/lc_soliton"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = ["build", "dist", ".venv", "venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+

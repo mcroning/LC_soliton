@@ -1,0 +1,31 @@
+name: lc_soliton
+channels:
+  - nvidia
+  - conda-forge
+  - defaults
+
+dependencies:
+  # --- Core Python ---
+  - python=3.11
+  - pip
+
+  # --- GPU & numerical libraries ---
+  # Use cupy-cuda12x for systems with CUDA 12.x drivers (A100, RTX 40xx, etc.)
+  # On Mac or CPU-only machines, replace with "cupy" (pure CPU fallback).
+  - cupy-cuda12x>=13.0.0
+  - numpy>=1.26
+  - scipy>=1.13
+  - matplotlib>=3.8
+
+  # --- Dev/test tools ---
+  - pytest>=8.0
+  - ruff>=0.6.0
+
+  # --- Optional: progress and visualization helpers ---
+  - tqdm
+  - pyvista
+  - jupyterlab
+
+  # --- Optional pip extras (if not available on conda) ---
+  - pip:
+      - rich
