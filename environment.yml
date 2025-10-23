@@ -1,4 +1,3 @@
-cat > environment.yml <<'YML'
 name: lc_soliton
 channels:
   - conda-forge
