@@ -5,10 +5,11 @@ dependencies:
   - python=3.11
   - numpy>=1.26,<2.0
   - scipy>=1.11,<2.0
+  - numba>=0.59,<0.60
   - matplotlib>=3.8,<4.0
   - pyyaml
   - pip
   - pip:
-      - cupy>=13.0,<14.0a0     # CPU-only CuPy build
+      - cupy==0  # disables GPU, installs dummy fallback
       - ruff>=0.6,<0.7
       - pytest>=7.4,<8.0
