@@ -1,16 +1,16 @@
 name: lc_soliton
 channels:
   - conda-forge
-  - nvidia
 dependencies:
   - python=3.11
   - numpy>=1.26,<2.0
-  - cupy-cuda12x>=13.0,<14.0a0
   - scipy>=1.11,<2.0
   - numba>=0.59,<0.60
   - matplotlib>=3.8,<4.0
   - pyyaml
   - pip
   - pip:
+      - cupy-cuda12x>=13.0,<14.0a0     # if your GPUs use CUDA 12.x
+      # - cupy-cuda11x>=13.0,<14.0a0   # use this instead on CUDA 11.x clusters
       - ruff>=0.6,<0.7
       - pytest>=7.4,<8.0
