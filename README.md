@@ -156,7 +156,7 @@ sbatch examples/slurm_run_theta.sh
 
 ---
 
-### 🧰 Build & Maintenance Targets
+## 🧰 Build & Maintenance Targets
 
 
 make install          # Editable install with dev tools (pytest, ruff)
@@ -164,13 +164,13 @@ make test             # Run test suite
 make lint             # Static analysis (Ruff)
 make cuda-info        # GPU/CuPy diagnostics
 
-# --- Docs management ---
+#### --- Docs management ---
 make docs-deps        # install ReportLab for PDF generation
 make docs             # build all docs/*.pdf files
 make docs-open        # open docs/ directory
 make docs-clean       # remove generated PDFs
 
-# --- Cleaning utilities ---
+#### --- Cleaning utilities ---
 make clean            # remove temporary build artifacts and caches (safe)
 make clean-dry        # preview what 'clean' would remove
 make clean-cupy-cache # remove CuPy kernel caches
