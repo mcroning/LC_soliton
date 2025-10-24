@@ -156,14 +156,27 @@ sbatch examples/slurm_run_theta.sh
 
 ---
 
-## 🧰 Makefile Reference
+### 🧰 Build & Maintenance Targets
 
-| Target | Description |
-|--------|-------------|
-| `make install` | Editable install with dev tools |
-| `make test` | Run pytest suite |
-| `make lint` | Static checks via Ruff |
-| `make cuda-info` | GPU info (CuPy/nvidia-smi) |
+```bash
+make install          # Editable install with dev tools (pytest, ruff)
+make test             # Run test suite
+make lint             # Static analysis (Ruff)
+make cuda-info        # GPU/CuPy diagnostics
+
+# --- Docs management ---
+make docs-deps        # install ReportLab for PDF generation
+make docs             # build all docs/*.pdf files
+make docs-open        # open docs/ directory
+make docs-clean       # remove generated PDFs
+
+# --- Cleaning utilities ---
+make clean            # remove temporary build artifacts and caches (safe)
+make clean-dry        # preview what 'clean' would remove
+make clean-cupy-cache # remove CuPy kernel caches
+make clean-slurm      # remove Slurm outputs
+make superclean       # clean + remove extra build leftovers (safe)
+make distclean FORCE=1 # SUPER-aggressive cleanup (data/results)
 
 ---
 
