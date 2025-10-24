@@ -49,3 +49,13 @@ cuda-info:
 clean:
 	@rm -rf build/ dist/ *.egg-info .pytest_cache .ruff_cache
 	@find . -type d -name "__pycache__" -prune -exec rm -rf {} +
+# --------- Demos ---------	
+.PHONY: run-demo plot-demo
+
+run-demo:
+	python examples/run_theta2d.py --Nx 128 --Ny 128 --xaper 10.0 \
+	  --steps 500 --dt 1e-3 --b 1.0 --bi 0.3 --intensity 1.0 \
+	  --mobility 1.0 --save theta_out.npz
+
+plot-demo:
+	python examples/plot_field.py theta_out.npz --save theta_out.png
