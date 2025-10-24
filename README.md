@@ -158,7 +158,7 @@ sbatch examples/slurm_run_theta.sh
 
 ### 🧰 Build & Maintenance Targets
 
-```bash
+
 make install          # Editable install with dev tools (pytest, ruff)
 make test             # Run test suite
 make lint             # Static analysis (Ruff)
