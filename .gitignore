@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.pyo
+lc_soliton.egg-info/
+*.npz
+*.png
