@@ -1,21 +1,38 @@
-# -------- Settings --------
-PYTHON ?= python
-PKG    ?= lc_soliton
+# ==============================================================================
+# LC_soliton — unified Makefile (local + cluster friendly)
+# Place this file at the repo root.
+# ==============================================================================
 
-# Ruff/pytest config can also live in pyproject.toml
+# -------- Settings --------
+PYTHON := $(shell which python)
+PKG    ?= lc_soliton
 TEST_ARGS ?= -q
 RUFF_ARGS ?= .
+NPZ    ?= theta_out.npz
+PNG    ?= theta_out.png
+LATEST_NPZ := $(shell ls -t *.npz 2>/dev/null | head -n1)
 
 # -------- Help --------
-.PHONY: help
-help:
-	@echo "Available targets:"
-	@echo "  install     - Editable install with dev tools (pytest, ruff)"
-	@echo "  test        - Run pytest ($(TEST_ARGS))"
-	@echo "  lint        - Static checks via ruff (lint only)"
-	@echo "  fmt         - Auto-format via ruff (format + organize imports)"
-	@echo "  cuda-info   - Print CUDA driver/toolkit/CuPy summary"
-	@echo "  clean       - Remove build artifacts and caches"
+.PHONY: help list
+help: list
+list:
+	@echo "Targets:"
+	@printf "  %-15s %s\n" \
+	  install "Editable install with dev tools (pytest, ruff)" \
+	  test "Run pytest ($(TEST_ARGS))" \
+	  lint "Static checks via ruff" \
+	  fmt "Auto-format (ruff format + organize imports)" \
+	  cuda-info "Print CUDA driver/toolkit/CuPy summary" \
+	  run-demo "Short demo GPU run (writes theta_out.npz)" \
+	  plot-demo "Plot theta_out.npz -> theta_out.png" \
+	  run-long "Longer, finer GPU run" \
+	  plot-latest "Plot newest .npz -> $(PNG)" \
+	  plot "Plot NPZ=<file>.npz -> PNG=<file>.png" \
+	  sweep "Sequential parameter sweep over B_LIST & BI_LIST" \
+	  slurm-run "Submit a single run to Slurm (GPU)" \
+	  slurm-sweep "Submit a sweep job to Slurm (GPU)" \
+	  clean "Remove outputs/logs" \
+	  clean-all "Also remove caches/builds"
 
 # -------- Dev setup --------
 .PHONY: install
@@ -29,11 +46,10 @@ test:
 	@$(PYTHON) -m pytest $(TEST_ARGS)
 
 # -------- Lint & Format --------
-.PHONY: lint
+.PHONY: lint fmt
 lint:
 	@$(PYTHON) -m ruff check $(RUFF_ARGS)
 
-.PHONY: fmt
 fmt:
 	@$(PYTHON) -m ruff check --select I --fix $(RUFF_ARGS)   # organize imports
 	@$(PYTHON) -m ruff format $(RUFF_ARGS)                   # format files
@@ -41,21 +57,135 @@ fmt:
 # -------- CUDA info --------
 .PHONY: cuda-info
 cuda-info:
-	@echo "=== Checking CUDA environment ==="
-	@$(PYTHON) -m $(PKG).utils.env_info
+	@echo "=== CUDA / CuPy info from $(PYTHON) ==="
+	@$(PYTHON) -m $(PKG).utils.env_info || (echo "Note: env_info module prints driver/toolkit/CuPy summary"; exit 0)
 
 # -------- Clean --------
-.PHONY: clean
+.PHONY: clean clean-all
 clean:
-	@rm -rf build/ dist/ *.egg-info .pytest_cache .ruff_cache
-	@find . -type d -name "__pycache__" -prune -exec rm -rf {} +
-# --------- Demos ---------	
-.PHONY: run-demo plot-demo
+	@echo "▶ Cleaning outputs and logs"
+	@rm -f *.npz *.png slurm-*.out lc-*.out lc-*.%j.out lc-theta.*.out lc-sweep.*.out
 
+clean-all: clean
+	@echo "▶ Removing Python caches and build artifacts"
+	@rm -rf build/ dist/ *.egg-info .pytest_cache .mypy_cache .ruff_cache
+	@find . -type d -name "__pycache__" -prune -exec rm -rf {} +
+
+# -------- Demos --------
+.PHONY: run-demo plot-demo
 run-demo:
-	python examples/run_theta2d.py --Nx 128 --Ny 128 --xaper 10.0 \
+	$(PYTHON) examples/run_theta2d.py --Nx 128 --Ny 128 --xaper 10.0 \
 	  --steps 500 --dt 1e-3 --b 1.0 --bi 0.3 --intensity 1.0 \
-	  --mobility 1.0 --save theta_out.npz
+	  --mobility 1.0 --save $(NPZ)
 
 plot-demo:
-	python examples/plot_field.py theta_out.npz --save theta_out.png
+	$(PYTHON) examples/plot_field.py $(NPZ) --save $(PNG)
+
+# -------- Extended run --------
+.PHONY: run-long
+run-long:
+	@echo "▶ Running a longer 2-D theta evolution on GPU…"
+	$(PYTHON) examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
+	  --steps 10000 --dt 5e-4 --b 1.05 --bi 0.35 --intensity 1.0 \
+	  --mobility 1.0 --save $(NPZ)
+
+# -------- Plot helpers --------
+.PHONY: plot-latest plot
+plot-latest:
+	@if [ -z "$(LATEST_NPZ)" ]; then \
+	  echo "No .npz files found. Run 'make run-demo' or set NPZ=yourfile.npz"; exit 1; \
+	fi; \
+	echo "▶ Plotting $(LATEST_NPZ) → $(PNG)"; \
+	$(PYTHON) examples/plot_field.py "$(LATEST_NPZ)" --save "$(PNG)"
+
+plot:
+	@if [ ! -f "$(NPZ)" ]; then echo "Missing NPZ=$(NPZ)"; exit 1; fi
+	@echo "▶ Plotting $(NPZ) → $(PNG)"
+	$(PYTHON) examples/plot_field.py "$(NPZ)" --save "$(PNG)"
+
+# -------- Parameter sweep (sequential) --------
+# Override on the command line as needed:
+#   make sweep B_LIST="0.9 1.0 1.1" BI_LIST="0.2 0.3" STEPS=6000 DT=7.5e-4
+B_LIST ?= 0.95 1.00 1.05
+BI_LIST ?= 0.25 0.30 0.35
+STEPS ?= 4000
+DT ?= 1e-3
+
+.PHONY: sweep
+sweep:
+	@echo "▶ Sweeping b in [$(B_LIST)] and bi in [$(BI_LIST)]"
+	@for B in $(B_LIST); do \
+	  for BI in $(BI_LIST); do \
+	    OUT=theta_b$${B}_bi$${BI}.npz; \
+	    echo "  → b=$${B}, bi=$${BI}  -> $${OUT}"; \
+	    $(PYTHON) examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
+	      --steps $(STEPS) --dt $(DT) --b $${B} --bi $${BI} --intensity 1.0 \
+	      --mobility 1.0 --save $${OUT}; \
+	    $(PYTHON) examples/plot_field.py $${OUT} --save "$${OUT%.npz}.png"; \
+	  done; \
+	done
+	@echo "✔ Sweep complete"
+
+# -------- Slurm helpers (cluster) --------
+# Override if your site uses different modules/partitions:
+#   make slurm-run CUDA_MOD=cuda/11.8 ANA_MOD=anaconda/2024.10 SLURM_PART=gpu-a100
+SLURM_PART ?= gpu
+SLURM_TIME ?= 00:30:00
+SLURM_GPUS ?= 1
+CUDA_MOD   ?= cuda/12.2
+ANA_MOD    ?= anaconda/2024.10
+ENV_NAME   ?= lc_soliton
+
+.PHONY: slurm-run
+slurm-run:
+	@echo "▶ Submitting Slurm run: partition=$(SLURM_PART) time=$(SLURM_TIME)"
+	@sbatch --parsable <<'SB'
+#!/bin/bash
+#SBATCH -p $(SLURM_PART)
+#SBATCH --gres=gpu:$(SLURM_GPUS)
+#SBATCH -t $(SLURM_TIME)
+#SBATCH -J lc-theta
+#SBATCH -o lc-theta.%j.out
+set -xeu
+module purge
+module load $(ANA_MOD)
+module load $(CUDA_MOD)
+source "$$(conda info --base)/etc/profile.d/conda.sh"
+conda activate $(ENV_NAME)
+python -m pip install -e . >/dev/null 2>&1 || true
+python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
+  --steps 8000 --dt 7.5e-4 --b 1.05 --bi 0.35 --intensity 1.0 \
+  --mobility 1.0 --save theta_out.npz
+python examples/plot_field.py theta_out.npz --save theta_out.png
+echo "Saved theta_out.npz and theta_out.png"
+SB
+
+.PHONY: slurm-sweep
+slurm-sweep:
+	@echo "▶ Submitting Slurm sweep job: b in [$(B_LIST)], bi in [$(BI_LIST)]"
+	@sbatch --parsable <<'SB'
+#!/bin/bash
+#SBATCH -p $(SLURM_PART)
+#SBATCH --gres=gpu:$(SLURM_GPUS)
+#SBATCH -t 02:00:00
+#SBATCH -J lc-sweep
+#SBATCH -o lc-sweep.%j.out
+set -xeu
+module purge
+module load $(ANA_MOD)
+module load $(CUDA_MOD)
+source "$$(conda info --base)/etc/profile.d/conda.sh"
+conda activate $(ENV_NAME)
+python -m pip install -e . >/dev/null 2>&1 || true
+B_LIST="$(B_LIST)"
+BI_LIST="$(BI_LIST)"
+for B in $$B_LIST; do
+  for BI in $$BI_LIST; do
+    OUT=theta_b$${B}_bi$${BI}.npz
+    python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
+      --steps $(STEPS) --dt $(DT) --b $${B} --bi $${BI} --intensity 1.0 \
+      --mobility 1.0 --save $${OUT}
+    python examples/plot_field.py $${OUT} --save "$${OUT%.npz}.png"
+  done
+done
+SB

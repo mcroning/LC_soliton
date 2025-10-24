@@ -1,4 +1,5 @@
-# Minimal 2-D theta evolution: IMEX time stepping + optional Newton polish.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import argparse, cupy as cp
 from lc_soliton.lc_core import (
     LCVarDirichletState, init_lc_state,
