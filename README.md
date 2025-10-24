@@ -5,96 +5,192 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey.svg)]()
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-informational)]()
 
-GPU-accelerated solver for liquid-crystal (LC) director dynamics and optical field coupling.  
-Implements time-dependent and steady-state forms of the nematic director PDE with optical and electric driving, optimized for CUDA (CuPy).
+GPU-accelerated solver for **liquid-crystal (LC)** director dynamics and optical field coupling.  
+Implements both time-dependent and steady-state nematic director equations with electric (RF/DC) and optical driving.  
+Designed for use with **CuPy** (CUDA) or **NumPy** backends.
+
+---
+
+## ✨ Features
+
+- **GPU acceleration** with CuPy (automatic CPU fallback)  
+- **Transient and steady-state** LC solvers in 2D  
+- **Newton–Anderson** steady solver with stability checks  
+- **Command-line examples and visualization utilities**  
+- **Reproducible runs** (YAML configs, random seeds)  
+- **PDF documentation** in the `docs/` folder
 
 ---
 
 ## ⚙️ Installation
 
-### Clone and install the environment
-
 ```bash
 git clone https://github.com/mcroning/lc_soliton.git
 cd lc_soliton
-```
-
-#### 🧩 GPU (CUDA systems, e.g., RTX/A100)
-```bash
 conda env create -f environment.yml
 conda activate lc_soliton
 make install
 ```
 
-#### 🍎 CPU (Mac or non-CUDA systems)
-```bash
-conda env create -f environment-cpu.yml
-conda activate lc_soliton_cpu
-make install
-```
-
-Optional GPU check:
+To verify GPU visibility:
 ```bash
 make cuda-info
 ```
 
 ---
 
-## ▶️ Quickstart: run a 2-D θ simulation
+## ▶️ Quickstart
+
+Run a 2‑D transient LC simulation:
 
 ```bash
-python examples/run_theta2d.py --Nx 128 --Ny 128 --xaper 10.0 \
-  --steps 500 --dt 1e-3 --b 1.0 --bi 0.3 --intensity 1.0 \
-  --mobility 1.0 --save theta_out.npz
+python examples/run_theta2d.py --Nx 128 --Ny 128 --xaper 10.0   --steps 500 --dt 1e-3 --b 1.0 --bi 0.3 --intensity 1.0   --mobility 4.0 --save theta_out.npz
 ```
 
-Visualize the result:
+Plot results:
+
 ```bash
 python examples/plot_field.py theta_out.npz
 ```
 
-This displays a color map of the director field θ(x, y).
+---
+
+## 🧠 Governing Equations
+
+The LC director tilt $\theta(x, y, t)$ evolves according to:
+
+$$
+\frac{\gamma_1}{K} \frac{\partial \theta}{\partial t}
+= \nabla_{xy}^2 \theta
+ \frac{\epsilon_0 \Delta \epsilon_{\mathrm{RF}} E^2}{2K} \sin(2\theta)
+ \frac{\epsilon_0 n_a^2 |E_{\mathrm{op}}|^2}{4K} \sin(2\theta)
+$$
+
+
+where $K$ is the Frank elastic constant, $\gamma_1$ the rotational viscosity, and $E_{\mathrm{op}}$ the optical field envelope.  
+For steady state, set $\partial_t \theta = 0$.
+
+Dimensionless form:
+
+$$
+\frac{\partial \theta}{\partial t'} = \nabla_{xy}^2 \theta + b \sin(2\theta) + b_i I(x,y) \sin(2\theta)
+$$
+
+
+
+with
+
+$$
+b = \frac{\epsilon_0 \Delta \epsilon_{\mathrm{RF}} V^2}{8K},
+\qquad
+b_i = \frac{\epsilon_0 n_a^2 d^2}{16K} \langle |E_{\mathrm{op}}|^2 \rangle
+$$
 
 ---
 
-## 🧪 Using physical time (recommended)
+## 🧩 Mobility and Timescale
 
-Set the *mobility* parameter as:
+Define a mobility parameter to express physical time (seconds):
 
-\[
-\text{mobility} = \frac{K_{\text{Frank}}}{\gamma_1}\frac{4}{d^2} \; [\text{s}^{-1}]
-\]
 
-with  
-\(K_{\text{Frank}}\) = elastic constant (N),  
-\( \gamma_1 \) = rotational viscosity (Pa·s),  
-\( d \) = cell thickness (m).
+$\text{mobility} = \frac{K}{\gamma_1}\frac{4}{d^2} \quad [\mathrm{s}^{-1}]$
 
-Example (typical nematic):  
-\(K = 10\,\text{pN}, \gamma_1 = 0.1\,\text{Pa·s}, d = 10\,\mu\text{m}\)  
-→ `--mobility 4.0`
 
-Then `--dt` is in seconds, and results can be reported in \( t/\tau_0 \)  
-with \( \tau_0 = \gamma_1 / K \).
+Then `--dt` corresponds to seconds, and the natural timescale is $\tau_0 = \gamma_1 / K$.
+
+Example (typical nematic):
+
+$$
+K = 10\,\mathrm{pN}, \quad
+\gamma_1 = 0.1\,\mathrm{Pa\cdot s}, \quad
+d = 10\,\mu\mathrm{m}
+\Rightarrow \text{mobility} \approx 4.0
+$$
 
 ---
 
-## 🧬 Cluster / Slurm run
+## 🧪 Boundary Conditions
 
-Example job script (`examples/slurm_run_theta.sh`):
+Choose using `--bc`:
+
+- **Dirichlet:** $\theta|_{\partial \Omega} = 0$  
+- **Neumann:** $\frac{\partial \theta}{\partial n}\big|_{\partial \Omega} = 0$
+
+---
+
+## 🗂 Project Structure
+
+```
+lc_soliton/
+├── solvers/
+├── utils/
+├── examples/
+├── tests/
+├── docs/
+└── README.md
+```
+
+---
+
+## 🧬 Cluster / Slurm Example
 
 ```bash
 #!/bin/bash
 #SBATCH -p gpu
 #SBATCH --gres=gpu:1
-#SBATCH -t 00:10:00
+#SBATCH -t 00:20:00
 #SBATCH -J lc-theta
 #SBATCH -o lc-theta.%j.out
 
 source ~/.bashrc
 conda activate lc_soliton
-# module load cuda/12.2   # if your cluster requires it
 
-python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
-  --steps 1000 --dt 5e-4 --b 1.1 --bi 0.4 --intensity 1.0 \
-  --mobility 4.0 --save theta_clust_
+python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0   --steps 1000 --dt 5e-4 --b 1.1 --bi 0.4 --intensity 1.0   --mobility 4.0 --save theta_cluster.npz
+```
+
+Submit with:
+
+```bash
+sbatch examples/slurm_run_theta.sh
+```
+
+---
+
+## 🧰 Makefile Reference
+
+| Target | Description |
+|--------|-------------|
+| `make install` | Editable install with dev tools |
+| `make test` | Run pytest suite |
+| `make lint` | Static checks via Ruff |
+| `make cuda-info` | GPU info (CuPy/nvidia-smi) |
+
+---
+
+## 📄 Documentation
+
+Detailed derivations and usage instructions are provided as downloadable PDFs:
+
+- [LC_PDE_Derivation.pdf](docs/LC_PDE_Derivation.pdf) — Governing equation derivation  
+- [Usage_Guide.pdf](docs/Usage_Guide.pdf) — Command-line and runtime options  
+- [Development_Guide.pdf](docs/Development_Guide.pdf) — Architecture and contributing guide  
+
+---
+
+## 📜 License
+
+MIT License © 2025 Mark Cronin-Golomb
+
+---
+
+## 🧩 Citation
+
+```
+Cronin-Golomb, M. (2025).
+LC Soliton Simulator: GPU-accelerated LC solver.
+GitHub repository.
+```
+
+---
+
+_Developed and maintained at the Cronin-Golomb Lab (Tufts University)._
