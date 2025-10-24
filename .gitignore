@@ -21,7 +21,9 @@ pip-wheel-metadata/
 *.npz
 *.npy
 *.png
+# Ignore PDFs everywhere except docs/
 *.pdf
+!docs/*.pdf
 *.svg
 *.mp4
 *.gif
