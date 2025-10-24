@@ -1,6 +1,92 @@
+# -----------------------
+# Python / packaging
+# -----------------------
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-lc_soliton.egg-info/
+*.pyd
+*.so
+*.dylib
+*.egg
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+
+# -----------------------
+# Notebooks / data outputs
+# -----------------------
+.ipynb_checkpoints/
+# Simulation outputs & figures (keep env ymls!)
 *.npz
+*.npy
 *.png
+*.pdf
+*.svg
+*.mp4
+*.gif
+*.log
+
+# Optional: centralize outputs (uncomment if you use these dirs)
+# outputs/
+# results/
+# figures/
+# data/              # <- only if data is re-generable or large; otherwise track selectively
+# scratch/
+
+# -----------------------
+# Editors / OS
+# -----------------------
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+*.code-workspace
+
+# -----------------------
+# Conda / virtual envs
+# -----------------------
+# Keep environment.yml files tracked; ignore local env folders
+.env/
+.venv/
+venv/
+env/
+conda-env/
+# DO NOT ignore: environment.yml, environment-cpu.yml
+
+# -----------------------
+# CuPy / CUDA caches (if created inside repo)
+# -----------------------
+.cupy/
+.cuda_cache/
+
+# -----------------------
+# Slurm / PBS / Scheduler logs
+# -----------------------
+# Slurm default filenames
+slurm-*.out
+slurm-*.err
+# Common scheduler patterns
+*.o[0-9]*
+*.e[0-9]*
+*.pe[0-9]*
+*.po[0-9]*
+# Your job scripts’ outputs
+*.sbatch.out
+*.sbatch.err
+*.cluster.out
+*.cluster.err
+# Project-specific job logs
+*.joblog
+*.srun.log
+lc-theta.*.out
+
+# -----------------------
+# Misc tooling
+# -----------------------
+.coverage
+htmlcov/
+.mypy_cache/
+.pytest_cache/
+ruff_cache/
