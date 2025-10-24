@@ -1,94 +1,125 @@
-# -----------------------
-# Python / packaging
-# -----------------------
+# ==========================================================
+#  LC_Soliton / Scientific GPU Project .gitignore
+# ==========================================================
+
+# --- Python / Conda / Virtual environments ---
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-*.so
-*.dylib
 *.egg
 *.egg-info/
-dist/
-build/
-pip-wheel-metadata/
+.eggs/
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+*.env
+*.conda
+*.yaml.lock
 
-# -----------------------
-# Notebooks / data outputs
-# -----------------------
+# --- Jupyter / IPython ---
 .ipynb_checkpoints/
-# Simulation outputs & figures (keep env ymls!)
-*.npz
-*.npy
-*.png
-# Ignore PDFs everywhere except docs/
-*.pdf
-!docs/*.pdf
-*.svg
-*.mp4
-*.gif
+*.nbconvert.ipynb
+
+# --- Build / Packaging ---
+build/
+dist/
+*.manifest
+*.spec
+*.whl
+
+# --- Compiled extensions / binaries ---
+*.so
+*.dylib
+*.dll
+*.pyd
+*.o
+*.a
+*.mod
+
+# --- GPU / CUDA / CuPy / PyTorch caches ---
+# CuPy kernel cache
+~/.cupy_kernel_cache/
+cupy_kernel_cache/
+cupy_cache/
+cupy_*.cubin
+cupy_*.ptx
+*.cubin
+*.ptx
+*.fatbin
+*.sass
+*.nvcc.*
+*.cu.o
+*.cu.d
+*.cu.log
+*.nvvp
+
+# PyTorch / TensorFlow caches
+torch_extensions/
+.torch_extensions/
+tf_cache/
+__pycache__torch_*/
+*.pth
+*.pt
+*.onnx
+*.hdf5
+*.h5
+
+# --- Logs / outputs / checkpoints ---
 *.log
-
-# Optional: centralize outputs (uncomment if you use these dirs)
-# outputs/
-# results/
-# figures/
-# data/              # <- only if data is re-generable or large; otherwise track selectively
-# scratch/
-
-# -----------------------
-# Editors / OS
-# -----------------------
-.DS_Store
+*.out
+*.err
+*.bak
+*.tmp
 *.swp
-*.swo
+*.lock
+*.dat
+*.npy
+*.npz
+*.ckpt
+*.resume
+*.snapshot
+
+# --- HPC / Slurm ---
+slurm-*.out
+*.sbatch~
+*.sh~
+.job/
+.output/
+.checkpoints/
+logs/
+reports/
+
+# --- IDEs / editors ---
 .vscode/
 .idea/
-*.code-workspace
+*.sublime-project
+*.sublime-workspace
 
-# -----------------------
-# Conda / virtual envs
-# -----------------------
-# Keep environment.yml files tracked; ignore local env folders
-.env/
-.venv/
-venv/
-env/
-conda-env/
-# DO NOT ignore: environment.yml, environment-cpu.yml
+# --- OS / metadata ---
+.DS_Store
+Thumbs.db
 
-# -----------------------
-# CuPy / CUDA caches (if created inside repo)
-# -----------------------
-.cupy/
-.cuda_cache/
+# --- Docs / PDFs ---
+# Ignore all PDFs except documentation
+*.pdf
+!docs/*.pdf
+!docs/**/*.pdf
+docs/.gitkeep
 
-# -----------------------
-# Slurm / PBS / Scheduler logs
-# -----------------------
-# Slurm default filenames
-slurm-*.out
-slurm-*.err
-# Common scheduler patterns
-*.o[0-9]*
-*.e[0-9]*
-*.pe[0-9]*
-*.po[0-9]*
-# Your job scripts’ outputs
-*.sbatch.out
-*.sbatch.err
-*.cluster.out
-*.cluster.err
-# Project-specific job logs
-*.joblog
-*.srun.log
-lc-theta.*.out
+# --- Figures / Plots (optional) ---
+*.png
+*.jpg
+*.jpeg
+*.tiff
+*.svg
+*.gif
 
-# -----------------------
-# Misc tooling
-# -----------------------
-.coverage
-htmlcov/
-.mypy_cache/
-.pytest_cache/
-ruff_cache/
+# --- Data / results (optional) ---
+data/
+results/
+outputs/
+runs/
+cache/
+temp/
+tmp/
