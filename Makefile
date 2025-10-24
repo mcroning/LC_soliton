@@ -140,52 +140,179 @@ ENV_NAME   ?= lc_soliton
 slurm-run:
 	@echo "▶ Submitting Slurm run: partition=$(SLURM_PART) time=$(SLURM_TIME)"
 	@sbatch --parsable <<'SB'
-#!/bin/bash
-#SBATCH -p $(SLURM_PART)
-#SBATCH --gres=gpu:$(SLURM_GPUS)
-#SBATCH -t $(SLURM_TIME)
-#SBATCH -J lc-theta
-#SBATCH -o lc-theta.%j.out
-set -xeu
-module purge
-module load $(ANA_MOD)
-module load $(CUDA_MOD)
-source "$$(conda info --base)/etc/profile.d/conda.sh"
-conda activate $(ENV_NAME)
-python -m pip install -e . >/dev/null 2>&1 || true
-python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
-  --steps 8000 --dt 7.5e-4 --b 1.05 --bi 0.35 --intensity 1.0 \
-  --mobility 1.0 --save theta_out.npz
-python examples/plot_field.py theta_out.npz --save theta_out.png
-echo "Saved theta_out.npz and theta_out.png"
-SB
+	#!/bin/bash
+	#SBATCH -p $(SLURM_PART)
+	#SBATCH --gres=gpu:$(SLURM_GPUS)
+	#SBATCH -t $(SLURM_TIME)
+	#SBATCH -J lc-theta
+	#SBATCH -o lc-theta.%j.out
+	set -xeu
+	module purge
+	module load $(ANA_MOD)
+	module load $(CUDA_MOD)
+	source "$$(conda info --base)/etc/profile.d/conda.sh"
+	conda activate $(ENV_NAME)
+	python -m pip install -e . >/dev/null 2>&1 || true
+	python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
+	--steps 8000 --dt 7.5e-4 --b 1.05 --bi 0.35 --intensity 1.0 \
+	--mobility 1.0 --save theta_out.npz
+	python examples/plot_field.py theta_out.npz --save theta_out.png
+	echo "Saved theta_out.npz and theta_out.png"
+	SB
 
 .PHONY: slurm-sweep
 slurm-sweep:
 	@echo "▶ Submitting Slurm sweep job: b in [$(B_LIST)], bi in [$(BI_LIST)]"
 	@sbatch --parsable <<'SB'
-#!/bin/bash
-#SBATCH -p $(SLURM_PART)
-#SBATCH --gres=gpu:$(SLURM_GPUS)
-#SBATCH -t 02:00:00
-#SBATCH -J lc-sweep
-#SBATCH -o lc-sweep.%j.out
-set -xeu
-module purge
-module load $(ANA_MOD)
-module load $(CUDA_MOD)
-source "$$(conda info --base)/etc/profile.d/conda.sh"
-conda activate $(ENV_NAME)
-python -m pip install -e . >/dev/null 2>&1 || true
-B_LIST="$(B_LIST)"
-BI_LIST="$(BI_LIST)"
-for B in $$B_LIST; do
-  for BI in $$BI_LIST; do
-    OUT=theta_b$${B}_bi$${BI}.npz
-    python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
-      --steps $(STEPS) --dt $(DT) --b $${B} --bi $${BI} --intensity 1.0 \
-      --mobility 1.0 --save $${OUT}
-    python examples/plot_field.py $${OUT} --save "$${OUT%.npz}.png"
-  done
-done
-SB
+	#!/bin/bash
+	#SBATCH -p $(SLURM_PART)
+	#SBATCH --gres=gpu:$(SLURM_GPUS)
+	#SBATCH -t 02:00:00
+	#SBATCH -J lc-sweep
+	#SBATCH -o lc-sweep.%j.out
+	set -xeu
+	module purge
+	module load $(ANA_MOD)
+	module load $(CUDA_MOD)
+	source "$$(conda info --base)/etc/profile.d/conda.sh"
+	conda activate $(ENV_NAME)
+	python -m pip install -e . >/dev/null 2>&1 || true
+	B_LIST="$(B_LIST)"
+	BI_LIST="$(BI_LIST)"
+	for B in $$B_LIST; do
+	for BI in $$BI_LIST; do
+		OUT=theta_b$${B}_bi$${BI}.npz
+		python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
+		--steps $(STEPS) --dt $(DT) --b $${B} --bi $${BI} --intensity 1.0 \
+		--mobility 1.0 --save $${OUT}
+		python examples/plot_field.py $${OUT} --save "$${OUT%.npz}.png"
+	done
+	done
+	SB
+# =========================
+# Cleaning targets (safe)
+# =========================
+
+# Directories we can safely remove (no source or docs here)
+CLEAN_DIRS ?= \
+	.build \
+	build \
+	dist \
+	.eggs \
+	.job \
+	.output \
+	.checkpoints \
+	logs \
+	reports \
+	cupy_kernel_cache \
+	cupy_cache \
+	torch_extensions \
+	.torch_extensions \
+	__pycache__
+
+# Files we can safely remove
+CLEAN_FILES ?= \
+	*.log \
+	*.out \
+	*.err \
+	*.tmp \
+	*.bak \
+	*.lock \
+	*.manifest \
+	*.spec \
+	*.whl \
+	*.o \
+	*.a \
+	*.mod \
+	*.so \
+	*.pyd \
+	*.dll \
+	*.dylib \
+	*.nvvp \
+	*.cu.o \
+	*.cu.d \
+	*.cu.log \
+	*.nvcc.* \
+	*.ptx \
+	*.cubin \
+	*.fatbin \
+	*.sass \
+	*.ckpt \
+	*.resume \
+	*.snapshot \
+	*.npy \
+	*.npz
+
+# Extra-aggressive patterns (excluded from default 'clean')
+DISTCLEAN_DIRS ?= \
+	.results \
+	results \
+	outputs \
+	runs \
+	cache \
+	temp \
+	tmp
+
+# OS-safe RM
+RM ?= rm -rf
+FIND ?= find
+
+.PHONY: clean clean-dry superclean distclean clean-cupy-cache clean-slurm help
+
+## clean: Remove temporary build artifacts and caches (safe)
+clean:
+	@echo "[clean] removing files: $(CLEAN_FILES)"
+	@$(FIND) . -maxdepth 1 -type f \( $(foreach f,$(CLEAN_FILES),-name "$(f)" -o) -false \) -print -delete || true
+	@echo "[clean] removing directories: $(CLEAN_DIRS)"
+	@$(foreach d,$(CLEAN_DIRS), [ -d "$(d)" ] && echo "$(d)" && $(RM) "$(d)" || true; )
+	@# Per-module __pycache__ (recursive)
+	@$(FIND) . -type d -name "__pycache__" -print -exec $(RM) {} +
+
+## clean-dry: Show what 'clean' would remove (no deletion)
+clean-dry:
+	@echo "[clean-dry] files matching:"
+	@$(FIND) . -maxdepth 1 -type f \( $(foreach f,$(CLEAN_FILES),-name "$(f)" -o) -false \) -print || true
+	@echo "[clean-dry] directories existing:"
+	@$(foreach d,$(CLEAN_DIRS), [ -d "$(d)" ] && echo "$(d)" || true; )
+	@$(FIND) . -type d -name "__pycache__" -print
+
+## clean-cupy-cache: Remove local CuPy kernel caches
+clean-cupy-cache:
+	@echo "[clean-cupy-cache] removing ./cupy_kernel_cache ./cupy_cache (if present)"
+	@$(RM) cupy_kernel_cache cupy_cache
+	@# Home cache (best-effort, shown only)
+	@echo "[clean-cupy-cache] NOTE: user-level cache may exist at ~/.cupy/kernel_cache or ~/.cupy_kernel_cache"
+
+## clean-slurm: Remove Slurm outputs in current tree
+clean-slurm:
+	@echo "[clean-slurm] removing slurm-*.out in tree"
+	@$(FIND) . -type f -name "slurm-*.out" -print -delete || true
+
+## superclean: clean + remove wheels/manifests + recache extras (safe)
+superclean: clean clean-cupy-cache clean-slurm
+	@echo "[superclean] done."
+
+## distclean: superclean + wipe large run/result/cache dirs (DANGEROUS)
+## Usage: make distclean FORCE=1
+distclean:
+	@if [ "$(FORCE)" != "1" ]; then \
+	  echo "[distclean] DANGEROUS: will remove run/result/cache directories"; \
+	  echo "           run with FORCE=1 to proceed, e.g. 'make distclean FORCE=1'"; \
+	  exit 1; \
+	fi
+	@echo "[distclean] removing: $(DISTCLEAN_DIRS)"
+	@$(foreach d,$(DISTCLEAN_DIRS), [ -d "$(d)" ] && echo "$(d)" && $(RM) "$(d)" || true; )
+	@$(MAKE) superclean
+
+# Merge with your existing help target or keep this if you don't have one
+help:
+	@echo "make install         - Editable install with dev tools"
+	@echo "make test            - Run pytest suite"
+	@echo "make lint            - Ruff static checks"
+	@echo "make cuda-info       - GPU/CuPy diagnostics"
+	@echo "make clean           - Remove temp build artifacts and caches (safe)"
+	@echo "make clean-dry       - Preview what 'clean' would remove"
+	@echo "make clean-cupy-cache- Remove CuPy caches"
+	@echo "make clean-slurm     - Remove Slurm outputs"
+	@echo "make superclean      - clean + extra cleanup (safe)"
+	@echo "make distclean       - SUPER aggressive cleanup (requires FORCE=1)"

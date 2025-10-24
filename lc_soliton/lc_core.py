@@ -214,22 +214,58 @@ def advance_theta_timestep(theta, amp, state: LCVarDirichletState, *,
                                       linesearch=True, Ixy=Ixy)
     return Tnext
 
-def warn_if_bias_too_strong(b, bi, amp_ref, theta_bias, state: LCVarDirichletState,
-                            *, coh=True, ratio_warn=0.6):
-    I_ref = intens(amp_ref, coh).astype(cp.float64, copy=False)
-    Kxy   = (cp.float64(b) + cp.float64(bi) * I_ref)
-    cos2  = cp.cos((theta_bias).astype(cp.float64, copy=False) * 2.0)
-    Vint  = (2.0 * Kxy * cos2)[1:-1, :]
+def lc_warn_bias_and_stiffness(theta_field, state, *, b, bi, Ixy=None,
+                            warn_theta_max_rad=1.20,   # ~69°
+                            warn_eta_soft=2e-3,        # |2K cos2θ| / median(D)
+                            warn_eta_hard=1e-2,        # stronger flag
+                            label="pre-Newton"):
+  """
+  Emit a warning when steady-state Newton is likely to be slow/unstable.
+  Triggers if:
+    - max(theta) exceeds warn_theta_max_rad, or
+    - eta_soft = ||2K cos(2θ)||_inf / median(D) exceeds thresholds.
 
-    Dmed  = float(cp.median(state.D.astype(cp.float64, copy=False))) + 1e-16
-    worst_neg = float(cp.max(-Vint))
-    metric = worst_neg / Dmed
+  Returns a dict with the metrics so you can log if desired.
+  """
+  import cupy as cp
 
-    if metric > ratio_warn:
-        cos2_abs_max = float(cp.max(cp.abs(cos2[1:-1, :])))
-        Imax = float(cp.max(I_ref))
-        b_safe = max(0.0, 0.5*Dmed/(cos2_abs_max + 1e-12) - bi*Imax)
-        print("⚠️  Steady-state may be unstable at this applied bias.")
-        print(f"   Indefiniteness metric = {metric:.2f} (threshold {ratio_warn:.2f}).")
-        print(f"   −min[2K cos(2θ)] = {worst_neg:.3e},   median(D) = {Dmed:.3e}.")
-        print(f"   Rough safe upper bound for b (holding θ, I fixed): b ≲ {b_safe:.3g}")
+  # ensure float64 CuPy array
+  th = cp.asarray(theta_field)
+  if th.dtype != cp.float64:
+      th = th.astype(cp.float64)
+  Nx, Ny = th.shape
+
+  # conservative default: zero optical drive
+  if Ixy is None:
+      Ixy = cp.zeros((Nx, Ny), dtype=cp.float64)
+  else:
+      Ixy = cp.asarray(Ixy)
+      if Ixy.dtype != cp.float64:
+          Ixy = Ixy.astype(cp.float64)
+
+  # interior quantities
+  th_int  = th[1:-1, :]
+  Kxy     = (b + bi * Ixy).astype(cp.float64)
+  Vint    = 2.0 * Kxy[1:-1, :] * cp.cos(2.0 * th_int)
+  Dmed    = float(cp.median(state.D.astype(cp.float64)))
+  vmax    = float(cp.max(Vint))
+  vmin    = float(cp.min(Vint))
+  eta_soft = max(abs(vmax), abs(vmin)) / (Dmed + 1e-30)
+  indef    = max(0.0, -vmin) / (Dmed + 1e-30)
+  thmax    = float(cp.max(cp.abs(th_int)))
+
+  should_warn = (thmax > warn_theta_max_rad) or (eta_soft > warn_eta_soft) or (indef > warn_eta_soft)
+
+  if should_warn:
+      badge = "⚠️"
+      sev   = "HARD" if (eta_soft >= warn_eta_hard or thmax > (warn_theta_max_rad+0.15)) else "SOFT"
+      print(
+  f"""{badge} Steady-state may be stiff/unstable ({sev}) [{label}]
+    max|θ| = {thmax:.3f} rad  (limit ~ {warn_theta_max_rad:.2f})
+    strength metric η = ||2K cos(2θ)||∞ / median(D) = {eta_soft:.3e}
+    indefiniteness    = max(-2K cos(2θ)) / median(D) = {indef:.3e}
+    range 2K cos(2θ): [{vmin:.3e}, {vmax:.3e}],   median(D) = {Dmed:.3e}
+    Remedies: lower V_app (b) or power, reduce dz, run time-dependent IMEX with corrector OFF,
+              or enable Levenberg–Marquardt damping in theta_newton_step.
+  """)
+      return {"theta_max": thmax, "eta": eta_soft, "indef": indef, "Dmed": Dmed, "vmin": vmin, "vmax": vmax}
