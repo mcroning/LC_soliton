@@ -105,7 +105,7 @@ def _ensure_state_init(state, Nx, Ny, d_use, fy):
     dx  = d_use / (n + 1)
     lamx = (4.0/(dx*dx)) * cp.sin(0.5*cp.pi*mx/(n+1))**2
     assert fy.shape == (Ny,), f"fy must be length Ny, got {fy.shape}"
-    ky2  = (2.0*cp.pi*fy[None,:])**2
+    ky2  = (fy[None,:])**2
 
     D = (d_use**2/4.0) * (lamx + ky2)
     shape = (n, Ny)
