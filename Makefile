@@ -4,13 +4,18 @@
 # ==============================================================================
 
 # -------- Settings --------
-PYTHON := $(shell which python)
+# -------- Settings --------
+# Prefer python3; fall back to python. Allow override: make <target> PYTHON=/path/to/python3
+PYTHON ?= $(shell command -v python3 2>/dev/null || command -v python)
+PIP    ?= $(PYTHON) -m pip
+
 PKG    ?= lc_soliton
 TEST_ARGS ?= -q
 RUFF_ARGS ?= .
 NPZ    ?= theta_out.npz
 PNG    ?= theta_out.png
 LATEST_NPZ := $(shell ls -t *.npz 2>/dev/null | head -n1)
+
 
 # -------- Help --------
 .PHONY: help list
@@ -152,11 +157,11 @@ slurm-run:
 	module load $(CUDA_MOD)
 	source "$$(conda info --base)/etc/profile.d/conda.sh"
 	conda activate $(ENV_NAME)
-	python -m pip install -e . >/dev/null 2>&1 || true
-	python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
+	$(PIP) install -e . >/dev/null 2>&1 || true
+	$(PYTHON) examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
 	--steps 8000 --dt 7.5e-4 --b 1.05 --bi 0.35 --intensity 1.0 \
 	--mobility 1.0 --save theta_out.npz
-	python examples/plot_field.py theta_out.npz --save theta_out.png
+	$(PYTHON) examples/plot_field.py theta_out.npz --save theta_out.png
 	echo "Saved theta_out.npz and theta_out.png"
 	SB
 
@@ -176,16 +181,16 @@ slurm-sweep:
 	module load $(CUDA_MOD)
 	source "$$(conda info --base)/etc/profile.d/conda.sh"
 	conda activate $(ENV_NAME)
-	python -m pip install -e . >/dev/null 2>&1 || true
+	$(PIP) install -e . >/dev/null 2>&1 || true
 	B_LIST="$(B_LIST)"
 	BI_LIST="$(BI_LIST)"
 	for B in $$B_LIST; do
 	for BI in $$BI_LIST; do
 		OUT=theta_b$${B}_bi$${BI}.npz
-		python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
+		$(PYTHON) examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
 		--steps $(STEPS) --dt $(DT) --b $${B} --bi $${BI} --intensity 1.0 \
 		--mobility 1.0 --save $${OUT}
-		python examples/plot_field.py $${OUT} --save "$${OUT%.npz}.png"
+		$(PYTHON) examples/plot_field.py $${OUT} --save "$${OUT%.npz}.png"
 	done
 	done
 	SB
@@ -316,3 +321,34 @@ help:
 	@echo "make clean-slurm     - Remove Slurm outputs"
 	@echo "make superclean      - clean + extra cleanup (safe)"
 	@echo "make distclean       - SUPER aggressive cleanup (requires FORCE=1)"
+
+
+# --- BEGIN AUTO-ADDED DOCS TARGETS ---
+# ==== Docs pipeline (append-only block) ======================================
+# Variables
+DOCS_DIR     ?= docs
+SCRIPTS_DIR  ?= scripts
+DOCS_SCRIPT  ?= $(SCRIPTS_DIR)/generate_docs.py
+
+.PHONY: docs-deps docs clean-docs refresh-docs
+
+docs-deps:
+	@echo "Installing docs dependencies (reportlab)…"
+	@$(PIP) install --quiet reportlab
+
+docs: docs-deps
+	@echo "Building PDFs into $(DOCS_DIR)/"
+	@mkdir -p $(DOCS_DIR)
+	@mkdir -p $(SCRIPTS_DIR)
+	@test -f $(DOCS_SCRIPT) || (echo "Missing $(DOCS_SCRIPT). Please copy scripts/generate_docs.py"; exit 1)
+	@$(PYTHON) $(DOCS_SCRIPT) --out $(DOCS_DIR)
+
+clean-docs:
+	@echo "Cleaning PDFs in $(DOCS_DIR)/"
+	@rm -f $(DOCS_DIR)/*.pdf
+
+refresh-docs: clean-docs docs
+	@echo "Docs refreshed."
+# ==== End docs pipeline block ===============================================
+
+# --- END AUTO-ADDED DOCS TARGETS ---
