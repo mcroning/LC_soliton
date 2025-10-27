@@ -1,6 +1,7 @@
 # lc_soliton/_internals.py
 from __future__ import annotations
 import cupy as cp
+import numpy as np
 
 # ---------- unitary FFT helpers ----------
 def ufft(a, axis):   return cp.fft.fft(a, axis=axis, norm="ortho")
@@ -43,3 +44,34 @@ def make_dst1_ortho_wrappers(dst1o_f, idst1o_f, n, Ny):
     def dst1_unit(X, axis=0):  return alpha * dst1o_f(X, axis=axis)
     def idst1_unit(Y, axis=0): return alpha * idst1o_f(Y, axis=axis)
     return dst1_unit, idst1_unit, c, alpha
+
+def intens(amp, coh=True):
+    """
+    Compute total intensity from one or more beam amplitudes.
+    Parameters
+    ----------
+    amp : array or list of arrays
+        Complex field amplitudes, shape (..., Nx, Ny)
+    coh : bool
+        If True, beams are coherent (sum fields first).
+        If False, beams are incoherent (sum intensities).
+
+    Returns
+    -------
+    Ixy : ndarray (real)
+        Total intensity map.
+    """
+    xp = cp.get_array_module(amp)
+    A = amp
+    if isinstance(amp, (list, tuple)):
+        A = xp.stack(amp, axis=0)
+    elif A.ndim == 2:
+        A = A[None, ...]
+
+    if coh:
+        # coherent sum: |Σ a_i|²
+        Ixy = xp.abs(xp.sum(A, axis=0))**2
+    else:
+        # incoherent sum: Σ |a_i|²
+        Ixy = xp.sum(xp.abs(A)**2, axis=0)
+    return Ixy.astype(xp.float32, copy=False)

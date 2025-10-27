@@ -11,4 +11,4 @@ conda activate lc_soliton   # your env name
 
 python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0 \
   --steps 1000 --dt 5e-4 --b 1.1 --bi 0.4 --intensity 1.0 --mobility 4.0 \
-  --save theta_cluster.npz
+  --save theta_cluster.npz --coh False

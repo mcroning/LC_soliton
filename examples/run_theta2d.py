@@ -19,6 +19,7 @@ def main():
     ap.add_argument("--mobility", type=float, default=1.0, help="(K_Frank/gamma1)*(4/d^2) [1/s]")
     ap.add_argument("--newton_every", type=int, default=0, help="0=off; polish every k steps")
     ap.add_argument("--save", default="theta_out.npz")
+    ap.add_argument("--coh", default= True")
     args = ap.parse_args()
 
     Nx, Ny = args.Nx, args.Ny
@@ -35,9 +36,9 @@ def main():
     for k in range(args.steps):
         theta = advance_theta_timestep(
             theta, amp, state,
-            dt=args.dt, b=args.b, bi=args.bi, mobility=args.mobility,
+            dt=args.dt, b=args.b, bi=args.bi, mobility=args.mobility, coh=args.coh,
             k_correct_every=args.newton_every or None,
-            k_index=k, newton_iters=1 if args.newton_every else 0,
+            k_index=k, newton_iters=1 if args.newton_every else 0
         )
 
     cp.savez(args.save, theta=cp.asnumpy(theta), meta=dict(

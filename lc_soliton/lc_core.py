@@ -4,7 +4,7 @@ import cupy as cp
 from cupyx.scipy import special as spspec
 
 from ._internals import (
-    ufft, uifft, dst1o, idst1o, make_dst1_ortho_wrappers
+    ufft, uifft, dst1o, idst1o, make_dst1_ortho_wrappers, intens
 )
 
 # ---------------- State ----------------
@@ -184,7 +184,7 @@ def _pcg_var(F, V_int, state, itmax=100, tol=1e-8, U0=None):
 
 # ---------------- Newton / Time step ----------------
 def theta_newton_step(theta_in, amp, state, *, b, bi,
-                      pcg_itmax=80, pcg_tol=1e-8, linesearch=True, Ixy=None):
+                      pcg_itmax=80, pcg_tol=1e-8, linesearch=True, Ixy=None, coh=True):
     theta = theta_in
     Nx, Ny = theta.shape
     # rebuild D if geometry changed
@@ -192,9 +192,9 @@ def theta_newton_step(theta_in, amp, state, *, b, bi,
 
     # intensity
     if Ixy is None:
-        A = amp
-        if A.ndim == 2: A = A[None, ...]
-        Ixy = cp.real(cp.sum(A * cp.conj(A), axis=0)).astype(cp.float64, copy=False)
+        # Use the package-wide intensity routine to respect coherence
+        # Returns float32; promote to float64 for solver math
+        Ixy = intens(amp, coh).astype(cp.float64, copy=False)
     else:
         Ixy = cp.asarray(Ixy, dtype=cp.float64)
 
@@ -233,16 +233,16 @@ def theta_newton_step(theta_in, amp, state, *, b, bi,
     return theta
 
 def advance_theta_timestep(theta, amp, state, *,
-                           dt, b, bi, Ixy=None,
+                           dt, b, bi, Ixy=None, coh=True,
                            k_correct_every=None, k_index=None,
                            newton_iters=0, newton_tol=1e-6,
                            mobility=1.0):
     xp = cp
+    # --- intensity (GPU) respecting coherence flag ---
     if Ixy is None:
-        A = xp.asarray(amp)
-        if A.ndim == 2: A = A[None, ...]
-        Ixy = xp.real(xp.sum(A * xp.conj(A), axis=0))
-    Ixy = Ixy.astype(xp.float64, copy=False)
+        # Use the same central intensity function used elsewhere
+        Ixy = intens(amp, coh)
+    Ixy = xp.asarray(Ixy, dtype=xp.float64, copy=False)
 
     T = xp.array(theta, dtype=xp.float64, copy=False)
     Tint = T[1:-1, :]
