@@ -213,7 +213,7 @@ _Developed and maintained at the Cronin-Golomb Lab (Tufts University)._
 ### 📘 Solver Reference
 For detailed descriptions of the numerical solvers, acronyms, and algorithms used in **LC Soliton Simulator**, see the companion document:
 
-📄 [Solver_Reference.pdf](./Solver_Reference.pdf)
+📄 [Solver_Reference.pdf](docs/Solver_Reference.pdf)
 
 This reference summarizes:
 - Function APIs for `advance_theta_timestep()` and `theta_newton_step()`
