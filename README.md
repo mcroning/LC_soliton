@@ -249,24 +249,34 @@ sbatch examples/slurm_run_theta.sh
 
 ## 🧰 Build & Maintenance Targets
 
-make install          # Editable install with dev tools (pytest, ruff)
-make test             # Run test suite
-make lint             # Static analysis (Ruff)
-make cuda-info        # GPU/CuPy diagnostics
+| Target           | Purpose                                            |
+| ---------------- | -------------------------------------------------- |
+| `make install`   | Editable install with dev tools (`pytest`, `ruff`) |
+| `make test`      | Run test suite                                     |
+| `make lint`      | Static analysis (Ruff)                             |
+| `make cuda-info` | GPU / CuPy diagnostics                             |
 
-#### --- Docs management ---
-make docs-deps        # install ReportLab for PDF generation
-make docs             # build all docs/*.pdf files
-make docs-open        # open docs/ directory
-make docs-clean       # remove generated PDFs
+
+#### --- Docs management (via scripts/Makefile.docs.addon) ---
+| Target            | Purpose                                                     |
+| ----------------- | ----------------------------------------------------------- |
+| `make docs-deps`  | Install ReportLab and other Python dependencies             |
+| `make docs`       | Build all `docs/*.pdf` files via `scripts/generate_docs.py` |
+| `make docs-list`  | Show configured documentation outputs                       |
+| `make docs-open`  | Open the `docs/` folder in Finder or your file browser      |
+| `make docs-clean` | Remove generated PDF files                                  |
+
 
 #### --- Cleaning utilities ---
-make clean            # remove temporary build artifacts and caches (safe)
-make clean-dry        # preview what 'clean' would remove
-make clean-cupy-cache # remove CuPy kernel caches
-make clean-slurm      # remove Slurm outputs
-make superclean       # clean + remove extra build leftovers (safe)
-make distclean FORCE=1 # SUPER-aggressive cleanup (data/results)
+| Target                   | Purpose                                                  |
+| ------------------------ | -------------------------------------------------------- |
+| `make clean`             | Remove intermediate build artifacts, logs, caches (safe) |
+| `make clean-dry`         | Preview what would be removed by `make clean`            |
+| `make clean-cupy-cache`  | Remove CuPy kernel caches                                |
+| `make clean-slurm`       | Remove Slurm job output files                            |
+| `make superclean`        | Aggressive clean (safe)                                  |
+| `make distclean FORCE=1` | Extreme clean, removes build + data/results directories  |
+
 
 ---
 
