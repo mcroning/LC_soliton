@@ -22,6 +22,23 @@ Designed for use with **CuPy** (CUDA) or **NumPy** backends.
 
 ---
 
+## ⚙️ Installation
+
+```bash
+git clone https://github.com/mcroning/lc_soliton.git
+cd lc_soliton
+conda env create -f environment.yml
+conda activate lc_soliton
+make install
+```
+
+To verify GPU visibility:
+```bash
+make cuda-info
+```
+
+---
+
 ## 🧭 User-Facing Functions
 
 Two main functions form the core of LC Soliton Simulator’s user API.
