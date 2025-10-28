@@ -65,17 +65,6 @@ cuda-info:
 	@echo "=== CUDA / CuPy info from $(PYTHON) ==="
 	@$(PYTHON) -m $(PKG).utils.env_info || (echo "Note: env_info module prints driver/toolkit/CuPy summary"; exit 0)
 
-# -------- Clean --------
-.PHONY: clean clean-all
-clean:
-	@echo "▶ Cleaning outputs and logs"
-	@rm -f *.npz *.png slurm-*.out lc-*.out lc-*.%j.out lc-theta.*.out lc-sweep.*.out
-
-clean-all: clean
-	@echo "▶ Removing Python caches and build artifacts"
-	@rm -rf build/ dist/ *.egg-info .pytest_cache .mypy_cache .ruff_cache
-	@find . -type d -name "__pycache__" -prune -exec rm -rf {} +
-
 # -------- Demos --------
 .PHONY: run-demo plot-demo
 run-demo:
@@ -194,120 +183,27 @@ slurm-sweep:
 	done
 	done
 	SB
-# =========================
-# Cleaning targets (safe)
-# =========================
 
-# Directories we can safely remove (no source or docs here)
-CLEAN_DIRS ?= \
-	.build \
-	build \
-	dist \
-	.eggs \
-	.job \
-	.output \
-	.checkpoints \
-	logs \
-	reports \
-	cupy_kernel_cache \
-	cupy_cache \
-	torch_extensions \
-	.torch_extensions \
-	__pycache__
+# ==== Unified clean target (replaces ALL previous `clean:` rules) ===========
+FIND        ?= find
+RM          ?= rm -rf
+CLEAN_FILES ?= *.npz *.png slurm-*.out lc-*.out lc-*.%j.out lc-theta.*.out lc-sweep.*.out \
+               .coverage .pytest_cache *.egg-info
+CLEAN_DIRS  ?= build dist .ruff_cache .venv venv \
+               docs/__pycache__ scripts/__pycache__ lc_soliton/__pycache__ tests/__pycache__
 
-# Files we can safely remove
-CLEAN_FILES ?= \
-	*.log \
-	*.out \
-	*.err \
-	*.tmp \
-	*.bak \
-	*.lock \
-	*.manifest \
-	*.spec \
-	*.whl \
-	*.o \
-	*.a \
-	*.mod \
-	*.so \
-	*.pyd \
-	*.dll \
-	*.dylib \
-	*.nvvp \
-	*.cu.o \
-	*.cu.d \
-	*.cu.log \
-	*.nvcc.* \
-	*.ptx \
-	*.cubin \
-	*.fatbin \
-	*.sass \
-	*.ckpt \
-	*.resume \
-	*.snapshot \
-	*.npy \
-	*.npz
-
-# Extra-aggressive patterns (excluded from default 'clean')
-DISTCLEAN_DIRS ?= \
-	.results \
-	results \
-	outputs \
-	runs \
-	cache \
-	temp \
-	tmp
-
-# OS-safe RM
-RM ?= rm -rf
-FIND ?= find
-
-.PHONY: clean clean-dry superclean distclean clean-cupy-cache clean-slurm help
-
-## clean: Remove temporary build artifacts and caches (safe)
+.PHONY: clean
 clean:
+	@echo "▶ Cleaning outputs and logs"
+	@rm -f *.npz *.png slurm-*.out lc-*.out lc-*.%j.out lc-theta.*.out lc-sweep.*.out || true
 	@echo "[clean] removing files: $(CLEAN_FILES)"
 	@$(FIND) . -maxdepth 1 -type f \( $(foreach f,$(CLEAN_FILES),-name "$(f)" -o) -false \) -print -delete || true
 	@echo "[clean] removing directories: $(CLEAN_DIRS)"
 	@$(foreach d,$(CLEAN_DIRS), [ -d "$(d)" ] && echo "$(d)" && $(RM) "$(d)" || true; )
-	@# Per-module __pycache__ (recursive)
-	@$(FIND) . -type d -name "__pycache__" -print -exec $(RM) {} +
+	@echo "[clean] removing per-module __pycache__ (recursive)"
+	@$(FIND) . -type d -name "__pycache__" -print -exec $(RM) {} + || true
+# ==== End unified clean =====================================================
 
-## clean-dry: Show what 'clean' would remove (no deletion)
-clean-dry:
-	@echo "[clean-dry] files matching:"
-	@$(FIND) . -maxdepth 1 -type f \( $(foreach f,$(CLEAN_FILES),-name "$(f)" -o) -false \) -print || true
-	@echo "[clean-dry] directories existing:"
-	@$(foreach d,$(CLEAN_DIRS), [ -d "$(d)" ] && echo "$(d)" || true; )
-	@$(FIND) . -type d -name "__pycache__" -print
-
-## clean-cupy-cache: Remove local CuPy kernel caches
-clean-cupy-cache:
-	@echo "[clean-cupy-cache] removing ./cupy_kernel_cache ./cupy_cache (if present)"
-	@$(RM) cupy_kernel_cache cupy_cache
-	@# Home cache (best-effort, shown only)
-	@echo "[clean-cupy-cache] NOTE: user-level cache may exist at ~/.cupy/kernel_cache or ~/.cupy_kernel_cache"
-
-## clean-slurm: Remove Slurm outputs in current tree
-clean-slurm:
-	@echo "[clean-slurm] removing slurm-*.out in tree"
-	@$(FIND) . -type f -name "slurm-*.out" -print -delete || true
-
-## superclean: clean + remove wheels/manifests + recache extras (safe)
-superclean: clean clean-cupy-cache clean-slurm
-	@echo "[superclean] done."
-
-## distclean: superclean + wipe large run/result/cache dirs (DANGEROUS)
-## Usage: make distclean FORCE=1
-distclean:
-	@if [ "$(FORCE)" != "1" ]; then \
-	  echo "[distclean] DANGEROUS: will remove run/result/cache directories"; \
-	  echo "           run with FORCE=1 to proceed, e.g. 'make distclean FORCE=1'"; \
-	  exit 1; \
-	fi
-	@echo "[distclean] removing: $(DISTCLEAN_DIRS)"
-	@$(foreach d,$(DISTCLEAN_DIRS), [ -d "$(d)" ] && echo "$(d)" && $(RM) "$(d)" || true; )
-	@$(MAKE) superclean
 
 # Merge with your existing help target or keep this if you don't have one
 help:
@@ -330,25 +226,10 @@ DOCS_DIR     ?= docs
 SCRIPTS_DIR  ?= scripts
 DOCS_SCRIPT  ?= $(SCRIPTS_DIR)/generate_docs.py
 
-.PHONY: docs-deps docs clean-docs refresh-docs
 
-docs-deps:
-	@echo "Installing docs dependencies (reportlab)…"
-	@$(PIP) install --quiet reportlab
-
-docs: docs-deps
-	@echo "Building PDFs into $(DOCS_DIR)/"
-	@mkdir -p $(DOCS_DIR)
-	@mkdir -p $(SCRIPTS_DIR)
-	@test -f $(DOCS_SCRIPT) || (echo "Missing $(DOCS_SCRIPT). Please copy scripts/generate_docs.py"; exit 1)
-	@$(PYTHON) $(DOCS_SCRIPT) --out $(DOCS_DIR)
-
-clean-docs:
-	@echo "Cleaning PDFs in $(DOCS_DIR)/"
-	@rm -f $(DOCS_DIR)/*.pdf
-
-refresh-docs: clean-docs docs
-	@echo "Docs refreshed."
-# ==== End docs pipeline block ===============================================
 
 # --- END AUTO-ADDED DOCS TARGETS ---
+
+# Include shared documentation targets (safe if missing, due to leading '-')
+-include scripts/Makefile.docs.addon
+
