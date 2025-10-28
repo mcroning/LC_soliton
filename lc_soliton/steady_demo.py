@@ -44,15 +44,15 @@ def _quantize(arr_host, dtype, lo, hi):
         if hi is None:
             hi = float(arr_host.max()) if arr_host.size else 1.0
         scale = 65535.0 / max(hi - lo, 1e-30)
-        q = np.clip((arr_host - lo) * scale, 0, 65535).astype(np.uint16, copy=False)
+        q = np.clip((arr_host - lo) * scale, 0, 65535).astype(np.uint16 )
         return q, dict(dtype=dtype, lo=float(lo), hi=float(hi))
     elif dtype == "int16":
         # Map [lo,hi] to int16 range symmetrically
         scale = 32767.0 / max(hi - lo, 1e-30)
-        q = ((arr_host - lo) * scale - 32768.0).clip(-32768, 32767).astype(np.int16, copy=False)
+        q = ((arr_host - lo) * scale - 32768.0).clip(-32768, 32767).astype(np.int16 )
         return q, dict(dtype=dtype, lo=float(lo), hi=float(hi))
     else:
-        return arr_host.astype(dtype, copy=False), dict(dtype=dtype, lo=float(lo), hi=float(hi or 0.0))
+        return arr_host.astype(dtype ), dict(dtype=dtype, lo=float(lo), hi=float(hi or 0.0))
 
 from .steady_api import solve_theta_steady_slice
 
@@ -150,7 +150,7 @@ def quick_view_slice(zarr_path, k, clim=None, cmap="viridis", title=None):
     A = g["data"][..., k]  # quantized
     q = g.attrs.get("quant", {})
     dtype, lo, hi = q.get("dtype"), q.get("lo", 0.0), q.get("hi", 1.0)
-    A = A.astype(np.float32, copy=False)
+    A = A.astype(np.float32 )
     if dtype == "uint16":
         scale = 1.0 if hi is None else (hi - lo)
         A = lo + A * (scale / 65535.0)

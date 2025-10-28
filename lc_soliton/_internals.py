@@ -21,7 +21,7 @@ def dst1o(u, axis=0):
     s_u = sl.copy(); s_u[axis] = slice(0, n)
     s_r = sl.copy(); s_r[axis] = slice(None, None, -1)
 
-    uC = u.astype(cp.complex64, copy=False)
+    uC = u.astype(cp.complex64 )
     v[tuple(sa)] =  uC[tuple(s_u)]
     v[tuple(sb)] = -uC[tuple(s_r)][tuple(s_u)]
 
@@ -74,7 +74,7 @@ def intens(amp, coh=True):
     else:
         # incoherent sum: Σ |a_i|²
         Ixy = xp.sum(xp.abs(A)**2, axis=0)
-    return Ixy.astype(xp.float32, copy=False)
+    return Ixy.astype(xp.float32 )
 
 def theta_newton_step(theta_in, amp, state, *, b, bi,
                       pcg_itmax=80, pcg_tol=1e-8, linesearch=True, Ixy=None, coh=True):
@@ -87,15 +87,15 @@ def theta_newton_step(theta_in, amp, state, *, b, bi,
     if Ixy is None:
         # Use the package-wide intensity routine to respect coherence
         # Returns float32; promote to float64 for solver math
-        Ixy = intens(amp, coh).astype(cp.float64, copy=False)
+        Ixy = intens(amp, coh).astype(cp.float64 )
     else:
         Ixy = cp.asarray(Ixy, dtype=cp.float64)
 
-    Kxy  = (b + bi * Ixy).astype(cp.float64, copy=False)
+    Kxy  = (b + bi * Ixy).astype(cp.float64 )
     Kint = Kxy[1:-1, :]
-    theta_int = theta[1:-1, :].astype(cp.float64, copy=False)
+    theta_int = theta[1:-1, :].astype(cp.float64 )
 
-    LpT  = _Lp_theta_real(theta_int, state).astype(cp.float64, copy=False)
+    LpT  = _Lp_theta_real(theta_int, state).astype(cp.float64 )
     Fint = (LpT - Kint * cp.sin(2.0 * theta_int))
     Vint = (2.0 * Kint * cp.cos(2.0 * theta_int))
 

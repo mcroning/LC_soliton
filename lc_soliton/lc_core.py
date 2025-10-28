@@ -31,19 +31,19 @@ class LCVarDirichletState:
 def make_kspace(Nx, Ny, dx, dy, *, dtype=cp.float32):
     fx = cp.fft.fftfreq(Nx, d=dx)
     fy = cp.fft.fftfreq(Ny, d=dy)
-    kx = (2*cp.pi*fx).astype(dtype, copy=False)
-    ky = (2*cp.pi*fy).astype(dtype, copy=False)
+    kx = (2*cp.pi*fx).astype(dtype )
+    ky = (2*cp.pi*fy).astype(dtype )
     kx_col = kx[:, None]
     kx2d, ky2d = cp.meshgrid(kx, ky, indexing="ij")
-    kxy2 = (kx2d**2 + ky2d**2).astype(dtype, copy=False)
+    kxy2 = (kx2d**2 + ky2d**2).astype(dtype )
     return kx_col, ky, kxy2
 
 # ---------------- Optics ----------------
 def LC_dn_from_theta(theta, ne, no, refin):
-    th64 = theta.astype(cp.float64, copy=False)
+    th64 = theta.astype(cp.float64 )
     ct, st = cp.cos(th64), cp.sin(th64)
     n_eff  = (ne*no) / cp.sqrt((ne*ct)**2 + (no*st)**2)
-    return (n_eff - refin).astype(cp.float32, copy=False)
+    return (n_eff - refin).astype(cp.float32 )
 
 # ---------------- Bias profile (exact) ----------------
 def build_theta_bias_IC(state, b, *, eps_clip=1e-12, return_1d=False):
@@ -116,10 +116,10 @@ def _ensure_state_init(state, Nx, Ny, d_use, fy):
     state.buf_z    = cp.zeros(shape, dtype=cp.complex64)
     state.buf_real = cp.zeros(shape, dtype=cp.float32)
 
-    state.fy = fy.astype(cp.float32, copy=False)
+    state.fy = fy.astype(cp.float32 )
     state.lamx = lamx
     state.ky2  = ky2
-    state.D    = D.astype(cp.float32, copy=False)
+    state.D    = D.astype(cp.float32 )
     state.Nx, state.Ny, state.d_use = Nx, Ny, d_use
     state.ready = True
 
@@ -194,15 +194,15 @@ def theta_newton_step(theta_in, amp, state, *, b, bi,
     if Ixy is None:
         # Use the package-wide intensity routine to respect coherence
         # Returns float32; promote to float64 for solver math
-        Ixy = intens(amp, coh).astype(cp.float64, copy=False)
+        Ixy = intens(amp, coh).astype(cp.float64 )
     else:
         Ixy = cp.asarray(Ixy, dtype=cp.float64)
 
-    Kxy  = (b + bi * Ixy).astype(cp.float64, copy=False)
+    Kxy  = (b + bi * Ixy).astype(cp.float64 )
     Kint = Kxy[1:-1, :]
-    theta_int = theta[1:-1, :].astype(cp.float64, copy=False)
+    theta_int = theta[1:-1, :].astype(cp.float64 )
 
-    LpT  = _Lp_theta_real(theta_int, state).astype(cp.float64, copy=False)
+    LpT  = _Lp_theta_real(theta_int, state).astype(cp.float64 )
     Fint = (LpT - Kint * cp.sin(2.0 * theta_int))
     Vint = (2.0 * Kint * cp.cos(2.0 * theta_int))
 
@@ -242,14 +242,14 @@ def advance_theta_timestep(theta, amp, state, *,
     if Ixy is None:
         # Use the same central intensity function used elsewhere
         Ixy = intens(amp, coh)
-    Ixy = xp.asarray(Ixy, dtype=xp.float64, copy=False)
+    Ixy = xp.asarray(Ixy, dtype=xp.float64 )
 
-    T = xp.array(theta, dtype=xp.float64, copy=False)
+    T = xp.array(theta, dtype=xp.float64 )
     Tint = T[1:-1, :]
-    Kxy  = (b + bi * Ixy).astype(xp.float64, copy=False)
+    Kxy  = (b + bi * Ixy).astype(xp.float64 )
     Kint = Kxy[1:-1, :]
 
-    Fexp = (Kint * xp.sin(2.0 * Tint)).astype(xp.float64, copy=False)
+    Fexp = (Kint * xp.sin(2.0 * Tint)).astype(xp.float64 )
 
     dst1_unit_c  = state.dst1_unit_c
     idst1_unit_c = state.idst1_unit_c
@@ -257,7 +257,7 @@ def advance_theta_timestep(theta, amp, state, *,
     Fexp_spec = dst1_unit_c( ufft(Fexp, axis=1), axis=0 )
     Tn_spec   = dst1_unit_c( ufft(Tint, axis=1), axis=0 )
 
-    Lam = state.D.astype(xp.float64, copy=False)
+    Lam = state.D.astype(xp.float64 )
     alpha = float(mobility) * float(dt)
 
     Tnp1_spec = (Tn_spec + alpha * Fexp_spec) / (1.0 + alpha * Lam)
