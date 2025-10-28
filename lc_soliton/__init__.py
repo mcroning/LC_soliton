@@ -1,5 +1,11 @@
 # lc_soliton/__init__.py
-__version__ = "0.1.2"
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+try:
+    __version__ = _pkg_version("lc_soliton")
+except PackageNotFoundError:
+    __version__ = "0+local"
+
 
 from .lc_core import (
     LCVarDirichletState,
