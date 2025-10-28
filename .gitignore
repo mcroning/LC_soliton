@@ -123,3 +123,7 @@ runs/
 cache/
 temp/
 tmp/
+
+# local-only helpers (keep shared ones tracked)
+scripts/*_local.*
+scripts/private/
