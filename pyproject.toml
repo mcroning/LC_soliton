@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lc_soliton"
-version = "0.2.0"
+version = "0.2.1"
 description = "GPU-accelerated liquid-crystal soliton simulation code"
 authors = [
   { name = "Mark Cronin-Golomb", email = "mark.cronin-golomb@tufts.edu" },
