@@ -22,26 +22,66 @@ Designed for use with **CuPy** (CUDA) or **NumPy** backends.
 
 ---
 
-## ⚙️ Installation
+## 🧭 User-Facing Functions
 
-```bash
-git clone https://github.com/mcroning/lc_soliton.git
-cd lc_soliton
-conda env create -f environment.yml
-conda activate lc_soliton
-make install
+Two main functions form the core of LC Soliton Simulator’s user API.
+
+| Function | Purpose | Notes |
+|-----------|----------|-------|
+| `advance_theta_timestep(state, dt, ...)` | Advances the LC director field in **time** using the transient PDE | For dynamic evolution problems |
+| `solve_theta_steady_slice(theta, amp, state, b, bi, ...)` | Finds the **steady-state** director field at one z-slice given the current optical field | For static or equilibrium solutions |
+
+### 1️⃣ `solve_theta_steady_slice`
+
+```python
+from lc_soliton import solve_theta_steady_slice
+
+theta_ss, info = solve_theta_steady_slice(theta_prev, amp_k, state, b=b, bi=bi)
 ```
 
-To verify GPU visibility:
-```bash
-make cuda-info
-```
+| Argument | Description |
+|-----------|-------------|
+| `theta_prev` | Initial director field (CuPy or NumPy array) |
+| `amp_k` | Complex optical amplitude at this slice |
+| `state` | Simulation container (grid, material, helpers) |
+| `b`, `bi` | Dimensionless LC parameters |
+| `nl_tol`, `step_tol` | Nonlinear and step-size tolerances (`1e-6`, `1e-7`) |
+| `max_newton`, `pcg_itmax` | Iteration limits for Newton and PCG solves |
+| `linesearch` | Enable line search (default `True`) |
+
+**Returns**  
+- `theta_ss` – steady-state director field for this slice  
+- `info` – dict with `converged`, `it`, `rel_res`, `step_inf`  
+
+Automatically detects backend (CuPy → GPU | NumPy → CPU).
 
 ---
 
-## ▶️ Quickstart
+### 2️⃣ `advance_theta_timestep`
 
-Run a 2‑D transient LC simulation:
+Integrates the LC equation forward in time for dynamic simulations.
+
+```python
+from lc_soliton import advance_theta_timestep
+
+theta_next = advance_theta_timestep(theta, state, dt=1e-3, b=b, bi=bi, intensity=Ixy)
+```
+
+| Argument | Description |
+|-----------|-------------|
+| `theta` | Current director field |
+| `state` | Simulation container |
+| `dt` | Physical timestep |
+| `b`, `bi` | LC parameters |
+| `intensity` | Optical intensity pattern |
+
+Use this for time-dependent relaxation or driven transients.
+
+---
+
+## ▶️ Quickstart Examples
+
+### ⏱ Transient Simulation (Time-step)
 
 ```bash
 python examples/run_theta2d.py --Nx 128 --Ny 128 --xaper 10.0   --steps 500 --dt 1e-3 --b 1.0 --bi 0.3 --intensity 1.0   --mobility 4.0 --save theta_out.npz
@@ -55,66 +95,117 @@ python examples/plot_field.py theta_out.npz
 
 ---
 
+### 🧩 Steady-State (Single Slice)
+
+```python
+from lc_soliton import solve_theta_steady_slice
+
+theta_ss, info = solve_theta_steady_slice(theta_bias, amp0, state, b=b, bi=bi)
+print(info)
+```
+
+Typical use: inside a z-loop for beam propagation, replacing time evolution with Newton convergence.
+
+---
+
+### 📊 Quick Visualization
+
+```python
+from lc_soliton import quick_view_slice
+
+quick_view_slice("steady_demo/Ixy_path.zarr", k=200, clim=(0,0.3), cmap="viridis")
+quick_view_slice("steady_demo/theta_path.zarr", k=200, cmap="twilight")
+```
+
+---
+
+### 🎬 Full Steady-State Demo (`demo_steady_path`)
+
+A convenience wrapper for **new users** or quick visualization.  
+Runs a full z‑range propagation, saving compressed Zarr datasets and optional movies.
+
+```python
+from lc_soliton import demo_steady_path
+
+out = demo_steady_path(
+    amp0, theta_bias,
+    h_full=h_full, h_half=h_half, dz=dz, niter=niter,
+    windowxy=windowxy, state=state, b=b, bi=bi,
+    outdir="steady_demo", picard_passes=1,
+    q_theta=("int16", -np.pi/2, np.pi/2),
+    q_int=("uint16", 0.0, None)
+)
+```
+
+Outputs:
+
+- `steady_demo/theta_path.zarr` – compressed θ(x,y,z)  
+- `steady_demo/Ixy_path.zarr` – compressed intensity |A|²(x,y,z)  
+- `steady_demo/snapshots/` – PNG thumbnails  
+- `steady_demo/movies/` – MP4 flythrough  
+- `steady_demo/summary.json` – metadata
+
+Viewable via `quick_view_slice()` or `lc-soliton view` CLI.
+
+---
+
 ## 🧠 Governing Equations
 
-The LC director tilt $\theta(x, y, t)$ evolves according to:
+The LC director tilt θ(x, y, t) obeys
 
 $$
-\frac{\gamma_1}{K} \frac{\partial \theta}{\partial t}
-= \nabla_{xy}^2 \theta
- \frac{\epsilon_0 \Delta \epsilon_{\mathrm{RF}} E^2}{2K} \sin(2\theta)
- \frac{\epsilon_0 n_a^2 |E_{\mathrm{op}}|^2}{4K} \sin(2\theta)
+\frac{\gamma_1}{K}\frac{\partial\theta}{\partial t}
+= \nabla_{xy}^2\theta
+ + \frac{\epsilon_0\Delta\epsilon_{RF}E^2}{2K}\sin(2\theta)
+ + \frac{\epsilon_0n_a^2|E_{op}|^2}{4K}\sin(2\theta)
 $$
 
-
-where $K$ is the Frank elastic constant, $\gamma_1$ the rotational viscosity, and $E_{\mathrm{op}}$ the optical field envelope.  
-For steady state, set $\partial_t \theta = 0$.
+where *K* is the Frank constant, γ₁ the rotational viscosity, and Eₒₚ the optical field envelope.  
+Steady state → set ∂ₜθ = 0.
 
 Dimensionless form:
 
 $$
-\frac{\partial \theta}{\partial t'} = \nabla_{xy}^2 \theta + b \sin(2\theta) + b_i I(x,y) \sin(2\theta)
+\frac{\partial\theta}{\partial t'} = \nabla_{xy}^2\theta + b\sin(2\theta) + b_iI(x,y)\sin(2\theta)
 $$
-
-
 
 with
 
 $$
-b = \frac{\epsilon_0 \Delta \epsilon_{\mathrm{RF}} V^2}{8K},
+b = \frac{\epsilon_0\Delta\epsilon_{RF}V^2}{8K},
 \qquad
-b_i = \frac{\epsilon_0 n_a^2 d^2}{16K} \langle |E_{\mathrm{op}}|^2 \rangle
+b_i = \frac{\epsilon_0n_a^2d^2}{16K}\langle|E_{op}|^2\rangle
 $$
 
 ---
 
 ## 🧩 Mobility and Timescale
 
-Define a mobility parameter to express physical time (seconds):
+Define a mobility parameter to express physical time (s):
 
+$$
+\text{mobility} = \frac{K}{\gamma_1}\frac{4}{d^2} \quad [\mathrm{s}^{-1}]
+$$
 
-$\text{mobility} = \frac{K}{\gamma_1}\frac{4}{d^2} \quad [\mathrm{s}^{-1}]$
-
-
-Then `--dt` corresponds to seconds, and the natural timescale is $\tau_0 = \gamma_1 / K$.
+Then `--dt` corresponds to seconds, and the natural timescale is τ₀ = γ₁ / K.
 
 Example (typical nematic):
 
 $$
-K = 10\,\mathrm{pN}, \quad
-\gamma_1 = 0.1\,\mathrm{Pa\cdot s}, \quad
-d = 10\,\mu\mathrm{m}
-\Rightarrow \text{mobility} \approx 4.0
+K=10\,\mathrm{pN},\quad
+\gamma_1=0.1\,\mathrm{Pa·s},\quad
+d=10\,\mu\mathrm{m}
+\Rightarrow\text{mobility}\approx4.0
 $$
 
 ---
 
 ## 🧪 Boundary Conditions
 
-Choose using `--bc`:
+Choose using `--bc` :
 
-- **Dirichlet:** $\theta|_{\partial \Omega} = 0$  
-- **Neumann:** $\frac{\partial \theta}{\partial n}\big|_{\partial \Omega} = 0$
+- **Dirichlet:** θ|∂Ω = 0  
+- **Neumann:** ∂ₙθ|∂Ω = 0
 
 ---
 
@@ -148,7 +239,7 @@ conda activate lc_soliton
 python examples/run_theta2d.py --Nx 256 --Ny 256 --xaper 10.0   --steps 1000 --dt 5e-4 --b 1.1 --bi 0.4 --intensity 1.0   --mobility 4.0 --save theta_cluster.npz
 ```
 
-Submit with:
+Submit:
 
 ```bash
 sbatch examples/slurm_run_theta.sh
@@ -157,7 +248,6 @@ sbatch examples/slurm_run_theta.sh
 ---
 
 ## 🧰 Build & Maintenance Targets
-
 
 make install          # Editable install with dev tools (pytest, ruff)
 make test             # Run test suite
@@ -182,43 +272,38 @@ make distclean FORCE=1 # SUPER-aggressive cleanup (data/results)
 
 ## 📄 Documentation
 
-Detailed derivations and usage instructions are provided as downloadable PDFs:
-
-- [LC_PDE_Derivation.pdf](docs/LC_PDE_Derivation.pdf) — Governing equation derivation  
-- [Usage_Guide.pdf](docs/Usage_Guide.pdf) — Command-line and runtime options  
-- [Development_Guide.pdf](docs/Development_Guide.pdf) — Architecture and contributing guide  
+- [LC_PDE_Derivation.pdf](docs/LC_PDE_Derivation.pdf) — Governing equations  
+- [Usage_Guide.pdf](docs/Usage_Guide.pdf) — CLI and runtime options  
+- [Development_Guide.pdf](docs/Development_Guide.pdf) — Architecture and contributing guide  
 
 ---
 
 ## 📜 License
 
-MIT License © 2025 Mark Cronin-Golomb
+MIT License © 2025 Mark Cronin‑Golomb
 
 ---
 
 ## 🧩 Citation
 
 ```
-Cronin-Golomb, M. (2025).
-LC Soliton Simulator: GPU-accelerated LC solver.
-GitHub repository.
+Cronin‑Golomb, M. (2025).
+LC Soliton Simulator: GPU‑accelerated LC solver.
+GitHub repository.
 ```
 
----
-
-_Developed and maintained at the Cronin-Golomb Lab (Tufts University)._
+_Developed and maintained at the Cronin‑Golomb Lab (Tufts University)._
 
 ---
 
 ### 📘 Solver Reference
-For detailed descriptions of the numerical solvers, acronyms, and algorithms used in **LC Soliton Simulator**, see the companion document:
 
-📄 [Solver_Reference.pdf](docs/Solver_Reference.pdf)
+For detailed solver and acronym definitions, see:  
+📄 [Solver_Reference.pdf](./Solver_Reference.pdf)
 
-This reference summarizes:
-- Function APIs for `advance_theta_timestep()` and `theta_newton_step()`
-- Definitions of key solver terms (PCG, SPD, LM shift, IMEX, etc.)
-- Conceptual background of the LC director equation and its discretization
-- GPU and coherence-handling features (`intens(amp, coh)`)
+Summarizes:
+- Function APIs for `advance_theta_timestep()` and `theta_newton_step()`  
+- Numerical methods (PCG, SPD, LM shift, IMEX)  
+- LC director discretization and GPU implementation details
 
 ---
