@@ -75,3 +75,52 @@ def intens(amp, coh=True):
         # incoherent sum: Σ |a_i|²
         Ixy = xp.sum(xp.abs(A)**2, axis=0)
     return Ixy.astype(xp.float32, copy=False)
+
+def theta_newton_step(theta_in, amp, state, *, b, bi,
+                      pcg_itmax=80, pcg_tol=1e-8, linesearch=True, Ixy=None, coh=True):
+    theta = theta_in
+    Nx, Ny = theta.shape
+    # rebuild D if geometry changed
+    _ensure_state_init(state, Nx, Ny, state.d_use, state.fy)
+
+    # intensity
+    if Ixy is None:
+        # Use the package-wide intensity routine to respect coherence
+        # Returns float32; promote to float64 for solver math
+        Ixy = intens(amp, coh).astype(cp.float64, copy=False)
+    else:
+        Ixy = cp.asarray(Ixy, dtype=cp.float64)
+
+    Kxy  = (b + bi * Ixy).astype(cp.float64, copy=False)
+    Kint = Kxy[1:-1, :]
+    theta_int = theta[1:-1, :].astype(cp.float64, copy=False)
+
+    LpT  = _Lp_theta_real(theta_int, state).astype(cp.float64, copy=False)
+    Fint = (LpT - Kint * cp.sin(2.0 * theta_int))
+    Vint = (2.0 * Kint * cp.cos(2.0 * theta_int))
+
+    tau  = cp.maximum(-cp.min(Vint) + 1e-6, 0.0)
+    Veff = Vint + tau
+
+    F_spec = state.dst1_unit_c( ufft(Fint, axis=1), axis=0 )
+    U      = _pcg_var(F_spec, Veff, state, itmax=pcg_itmax, tol=pcg_tol)
+    Uy     = state.idst1_unit_c(U, axis=0)
+    delta  = uifft(Uy, axis=1).real
+
+    def res_norm(th):
+        th_int = th[1:-1, :]
+        return float(cp.linalg.norm(
+            _Lp_theta_real(th_int, state) - Kxy[1:-1, :] * cp.sin(2.0 * th_int)
+        ))
+
+    res0, alpha, accepted = res_norm(theta), 1.0, False
+    for _ in range(6) if linesearch else range(1):
+        theta_trial = theta.copy()
+        theta_trial[1:-1, :] = theta_int - alpha * delta
+        if res_norm(theta_trial) <= res0 * (1 - 1e-3 * alpha):
+            theta = theta_trial; accepted = True; break
+        alpha *= 0.5
+    if not accepted:
+        theta[1:-1, :] = theta_int - delta
+    theta[0, :], theta[-1, :] = 0.0, 0.0
+    return theta

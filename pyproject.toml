@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lc_soliton"
-version = "0.1.0"
+version = "0.2.0"
 description = "GPU-accelerated liquid-crystal soliton simulation code"
 authors = [
   { name = "Mark Cronin-Golomb", email = "mark.cronin-golomb@tufts.edu" },
@@ -18,6 +18,9 @@ dependencies = [
   "numpy>=1.26",
   "scipy>=1.13",
   "matplotlib>=3.8",
+  "zarr>=2.16",         # for compressed steady outputs
+  "numcodecs>=0.12",    # compression backends (Zstd, Blosc)
+  "imageio>=2.34",      # movie writer
 ]
 
 [project.optional-dependencies]
@@ -42,3 +45,5 @@ select = ["E", "F", "I", "W"]
 quote-style = "double"
 indent-style = "space"
 
+[project.scripts]
+lc-soliton = "lc_soliton.cli:main"
